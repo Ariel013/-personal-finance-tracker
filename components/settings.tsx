@@ -11,6 +11,11 @@ import {
   FileSpreadsheet,
   AlertCircle,
   CheckCircle2,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Loader2,
+  Copy,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -66,6 +71,18 @@ interface SettingsProps {
   onImportJSON: (file: File) => Promise<ImportResult>
   onResetData: () => void
   availableMonths: string[]
+  // Cloud sync
+  cloudSync?: {
+    isConnected: boolean
+    isSyncing: boolean
+    lastSyncAt: string | null
+    error: string | null
+    onConnect: (url: string, anonKey: string) => Promise<{ success: boolean; message: string }>
+    onDisconnect: () => void
+    onSyncNow: () => Promise<{ success: boolean; message: string }>
+    onPullFromCloud: () => void
+    onRestoreBackup: () => void
+  }
 }
 
 const COLORS = [
@@ -94,6 +111,7 @@ export function Settings({
   onImportJSON,
   onResetData,
   availableMonths,
+  cloudSync,
 }: SettingsProps) {
   const [showCategoryForm, setShowCategoryForm] = useState(false)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
@@ -107,6 +125,12 @@ export function Settings({
   const [exportCategory, setExportCategory] = useState<string>('')
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Cloud sync state
+  const [supabaseUrl, setSupabaseUrl] = useState('')
+  const [supabaseKey, setSupabaseKey] = useState('')
+  const [cloudNotification, setCloudNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [showSqlInstructions, setShowSqlInstructions] = useState(false)
   
   // Transition month form
   const [showTransitionForm, setShowTransitionForm] = useState(false)
@@ -614,6 +638,166 @@ export function Settings({
               Export depenses: une ligne par depense. Export items: une ligne par item detaille. Export prets/dettes: historique complet.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Cloud Sync */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            {cloudSync?.isConnected ? <Cloud className="size-4 text-green-600" /> : <CloudOff className="size-4 text-muted-foreground" />}
+            Synchronisation Cloud
+          </CardTitle>
+          <CardDescription>
+            Connectez votre base Supabase pour acceder a vos donnees depuis n&apos;importe quel appareil.
+            Les donnees sont toujours sauvegardees en local d&apos;abord.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {cloudSync?.isConnected ? (
+            <>
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="size-4" />
+                Connecte a Supabase
+              </div>
+              {cloudSync.lastSyncAt && (
+                <p className="text-xs text-muted-foreground">
+                  Derniere sync : {new Date(cloudSync.lastSyncAt).toLocaleString('fr-FR')}
+                </p>
+              )}
+              {cloudSync.error && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="size-4" />
+                  {cloudSync.error}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    const result = await cloudSync.onSyncNow()
+                    setCloudNotification({ type: result.success ? 'success' : 'error', message: result.message })
+                    setTimeout(() => setCloudNotification(null), 3000)
+                  }}
+                  disabled={cloudSync.isSyncing}
+                >
+                  {cloudSync.isSyncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                  Envoyer vers le cloud
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cloudSync.onPullFromCloud()}
+                  disabled={cloudSync.isSyncing}
+                >
+                  <Download className="size-4" />
+                  Recuperer du cloud
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => cloudSync.onRestoreBackup()}
+                >
+                  Restaurer backup local
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => {
+                    cloudSync.onDisconnect()
+                    setSupabaseUrl('')
+                    setSupabaseKey('')
+                    setCloudNotification({ type: 'success', message: 'Deconnecte. Vos donnees locales sont intactes.' })
+                    setTimeout(() => setCloudNotification(null), 3000)
+                  }}
+                >
+                  <CloudOff className="size-4" />
+                  Deconnecter
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="supabase-url">URL du projet Supabase</Label>
+                  <Input
+                    id="supabase-url"
+                    placeholder="https://xxxxx.supabase.co"
+                    value={supabaseUrl}
+                    onChange={(e) => setSupabaseUrl(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="supabase-key">Cle anon (publique)</Label>
+                  <Input
+                    id="supabase-key"
+                    type="password"
+                    placeholder="eyJhbGciOiJIUzI1NiIs..."
+                    value={supabaseKey}
+                    onChange={(e) => setSupabaseKey(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={!supabaseUrl || !supabaseKey || cloudSync?.isSyncing}
+                    onClick={async () => {
+                      if (!cloudSync) return
+                      const result = await cloudSync.onConnect(supabaseUrl, supabaseKey)
+                      setCloudNotification({ type: result.success ? 'success' : 'error', message: result.message })
+                      setTimeout(() => setCloudNotification(null), 5000)
+                    }}
+                  >
+                    {cloudSync?.isSyncing ? <Loader2 className="size-4 animate-spin" /> : <Cloud className="size-4" />}
+                    Connecter
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setShowSqlInstructions(!showSqlInstructions)}
+                  >
+                    {showSqlInstructions ? 'Masquer' : 'Voir les instructions SQL'}
+                  </Button>
+                </div>
+              </div>
+              {showSqlInstructions && (
+                <div className="mt-3 rounded-md bg-muted p-3">
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Executez ce SQL dans votre projet Supabase (SQL Editor) :
+                  </p>
+                  <pre className="text-xs font-mono bg-background p-2 rounded border overflow-x-auto whitespace-pre">{`CREATE TABLE app_data (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  data JSONB NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  device TEXT DEFAULT 'unknown'
+);
+
+ALTER TABLE app_data DISABLE ROW LEVEL SECURITY;`}</pre>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="mt-2"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`CREATE TABLE app_data (\n  id TEXT PRIMARY KEY DEFAULT 'default',\n  data JSONB NOT NULL,\n  updated_at TIMESTAMPTZ DEFAULT NOW(),\n  device TEXT DEFAULT 'unknown'\n);\n\nALTER TABLE app_data DISABLE ROW LEVEL SECURITY;`)
+                      setCloudNotification({ type: 'success', message: 'SQL copie!' })
+                      setTimeout(() => setCloudNotification(null), 2000)
+                    }}
+                  >
+                    <Copy className="size-4" />
+                    Copier le SQL
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+          {cloudNotification && (
+            <div className={`flex items-center gap-2 text-sm ${cloudNotification.type === 'success' ? 'text-green-600' : 'text-destructive'}`}>
+              {cloudNotification.type === 'success' ? <CheckCircle2 className="size-4" /> : <AlertCircle className="size-4" />}
+              {cloudNotification.message}
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -8,8 +8,9 @@ import { cn } from '@/lib/utils'
 function Progress({
   className,
   value,
+  indicatorClassName: _,
   ...props
-}: React.ComponentProps<typeof ProgressPrimitive.Root>) {
+}: React.ComponentProps<typeof ProgressPrimitive.Root> & { indicatorClassName?: string }) {
   return (
     <ProgressPrimitive.Root
       data-slot="progress"

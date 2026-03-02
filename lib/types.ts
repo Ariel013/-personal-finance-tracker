@@ -107,6 +107,8 @@ export interface MonthlySnapshot {
     status: 'ok' | 'warning' | 'exceeded' // ok < 80%, warning 80-100%, exceeded > 100%
   }[]
   topDecisions: string[] // Notes de décision clés du mois
+  reportNote?: string // Note texte libre attachée au rapport
+  attachmentPath?: string // Chemin vers fichier local (PDF, etc.)
   createdAt: string
 }
 
@@ -119,6 +121,7 @@ export interface LoanRepayment {
   date: string // YYYY-MM-DD
   amount: number
   note?: string
+  fromSalary?: boolean // Remboursé depuis le salaire
   createdAt: string
 }
 
@@ -137,6 +140,20 @@ export interface Loan {
   repayments: LoanRepayment[] // Historique des remboursements
   createdAt: string
   updatedAt?: string
+}
+
+// Actions financières (suivi des tâches)
+export type ActionStatus = 'A_FAIRE' | 'FAIT' | 'EN_ATTENTE'
+
+export interface FinancialAction {
+  id: string
+  title: string
+  amount?: number
+  dueDate?: string // YYYY-MM-DD
+  status: ActionStatus
+  completedDate?: string // ISO string, set when status → FAIT
+  note?: string
+  createdAt: string
 }
 
 // Paramètres de l'application
@@ -163,13 +180,14 @@ export interface AppData {
   budgets: Budget[]
   snapshots: MonthlySnapshot[]
   loans: Loan[]
+  actions: FinancialAction[]
   categoryThresholds: Record<string, number> // @deprecated - use budgets instead
   settings: AppSettings
   version: string
 }
 
 // Versioned export format for backup/restore
-export const DATA_VERSION = '2.2.0' // Added: budgetary activation for subscriptions, financial context, transition months
+export const DATA_VERSION = '2.3.0' // Added: financial actions, report notes, data seeding
 
 export interface ExportData {
   version: string
@@ -277,6 +295,12 @@ export interface SimulationData {
   expenses: Expense[]
   incomes: Income[]
   budgets: Budget[]
+}
+
+export interface SupabaseConfig {
+  url: string
+  anonKey: string
+  enabled: boolean
 }
 
 export interface SimulationResult {

@@ -101,6 +101,7 @@ export function ExpenseForm({
     expense?.items && expense.items.length > 0
   )
   const [useAutoTotal, setUseAutoTotal] = useState(false)
+  const [showDetails, setShowDetails] = useState(!!expense)
 
   // Reset form when expense changes
   useEffect(() => {
@@ -148,6 +149,7 @@ export function ExpenseForm({
     setItems([])
     setIsItemsOpen(false)
     setUseAutoTotal(false)
+    setShowDetails(false)
   }
 
   // Calculate item total when quantity or unit price changes
@@ -268,8 +270,9 @@ export function ExpenseForm({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {/* Champs essentiels : montant + catégorie */}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="amount">Montant total</Label>
+            <Label htmlFor="amount">Montant</Label>
             <div className="flex gap-2">
               <Input
                 id="amount"
@@ -283,7 +286,7 @@ export function ExpenseForm({
                 }}
                 required
                 autoFocus
-                className="flex-1"
+                className="flex-1 text-lg"
               />
               {items.length > 0 && itemsTotal > 0 && (
                 <Button
@@ -324,215 +327,8 @@ export function ExpenseForm({
             </Select>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="subcategory">Sous-categorie (optionnel)</Label>
-            <Input
-              id="subcategory"
-              placeholder="Ex: Restaurant, Metro..."
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="payment">Paiement</Label>
-              <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
-                <SelectTrigger id="payment" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PAYMENT_METHODS.map((method) => (
-                    <SelectItem key={method.value} value={method.value}>
-                      {method.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="note">Note (optionnel)</Label>
-            <Input
-              id="note"
-              placeholder="Ajouter une note..."
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="decisionNote">Note de décision (optionnel)</Label>
-            <Textarea
-              id="decisionNote"
-              placeholder="Pourquoi cette dépense ? Contexte, arbitrage..."
-              value={decisionNote}
-              onChange={(e) => setDecisionNote(e.target.value)}
-              rows={2}
-              className="resize-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="tags">Tags</Label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="gap-1 pl-2 pr-1">
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => removeTag(tag)}
-                    className="hover:bg-muted rounded-sm p-0.5"
-                  >
-                    <X className="size-3" />
-                  </button>
-                </Badge>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <Input
-                id="tags"
-                placeholder="Ajouter un tag..."
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={handleTagInputKeyDown}
-                className="flex-1"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => addTag(tagInput)}
-                disabled={!tagInput.trim()}
-              >
-                +
-              </Button>
-            </div>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {SUGGESTED_TAGS.filter((t) => !tags.includes(t)).map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => addTag(tag)}
-                  className="text-xs px-2 py-1 rounded border border-dashed hover:bg-muted/50 transition-colors"
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Items Section */}
-          <Collapsible open={isItemsOpen} onOpenChange={setIsItemsOpen}>
-            <div className="border rounded-lg">
-              <CollapsibleTrigger asChild>
-                <button
-                  type="button"
-                  className="flex items-center justify-between w-full p-3 text-left hover:bg-muted/50 transition-colors"
-                >
-                  <span className="text-sm font-medium">
-                    Details de la depense ({items.length} item{items.length !== 1 ? 's' : ''})
-                  </span>
-                  {isItemsOpen ? (
-                    <ChevronUp className="size-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="size-4 text-muted-foreground" />
-                  )}
-                </button>
-              </CollapsibleTrigger>
-              <CollapsibleContent>
-                <div className="p-3 pt-0 flex flex-col gap-3">
-                  {items.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="flex flex-col gap-2 p-3 bg-muted/30 rounded-lg"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <Input
-                          placeholder="Nom de l'item"
-                          value={item.name}
-                          onChange={(e) => updateItem(index, 'name', e.target.value)}
-                          className="flex-1"
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon-sm"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="size-4" />
-                        </Button>
-                      </div>
-                      <div className="grid grid-cols-4 gap-2">
-                        <Input
-                          type="number"
-                          placeholder="Qte"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, 'quantity', e.target.value)}
-                        />
-                        <Input
-                          placeholder="Unite"
-                          value={item.unit}
-                          onChange={(e) => updateItem(index, 'unit', e.target.value)}
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Prix unit."
-                          value={item.unitPrice}
-                          onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
-                        />
-                        <Input
-                          type="number"
-                          placeholder="Total"
-                          value={item.total}
-                          onChange={(e) => updateItem(index, 'total', e.target.value)}
-                        />
-                      </div>
-                      <Select
-                        value={item.itemCategory}
-                        onValueChange={(v) => updateItem(index, 'itemCategory', v)}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Type d'item (optionnel)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ITEM_CATEGORIES.map((cat) => (
-                            <SelectItem key={cat} value={cat}>
-                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full bg-transparent"
-                    onClick={addItem}
-                  >
-                    <Plus className="size-4 mr-2" />
-                    Ajouter un item
-                  </Button>
-                </div>
-              </CollapsibleContent>
-            </div>
-          </Collapsible>
-
-          <div className="flex gap-2 pt-2">
+          {/* Boutons d'action rapide */}
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
@@ -545,6 +341,238 @@ export function ExpenseForm({
               {expense ? 'Modifier' : 'Ajouter'}
             </Button>
           </div>
+
+          {/* Toggle pour afficher les détails */}
+          <Collapsible open={showDetails} onOpenChange={setShowDetails}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex items-center justify-center gap-2 w-full py-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                {showDetails ? (
+                  <>
+                    <ChevronUp className="size-3" />
+                    Masquer les details
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="size-3" />
+                    Plus de details
+                  </>
+                )}
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="flex flex-col gap-4 pt-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="subcategory">Sous-categorie</Label>
+                <Input
+                  id="subcategory"
+                  placeholder="Ex: Restaurant, Metro..."
+                  value={subcategory}
+                  onChange={(e) => setSubcategory(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="payment">Paiement</Label>
+                  <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                    <SelectTrigger id="payment" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PAYMENT_METHODS.map((method) => (
+                        <SelectItem key={method.value} value={method.value}>
+                          {method.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="note">Note</Label>
+                <Input
+                  id="note"
+                  placeholder="Ajouter une note..."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="decisionNote">Note de decision</Label>
+                <Textarea
+                  id="decisionNote"
+                  placeholder="Pourquoi cette depense ?"
+                  value={decisionNote}
+                  onChange={(e) => setDecisionNote(e.target.value)}
+                  rows={2}
+                  className="resize-none"
+                />
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Label>Tags</Label>
+                <div className="flex flex-wrap gap-1">
+                  {SUGGESTED_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => tags.includes(tag) ? removeTag(tag) : addTag(tag)}
+                      className={`text-xs px-2 py-1 rounded border transition-colors ${
+                        tags.includes(tag)
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-dashed hover:bg-muted/50'
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+                {tags.filter((t) => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number])).length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {tags.filter((t) => !SUGGESTED_TAGS.includes(t as typeof SUGGESTED_TAGS[number])).map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1 pl-2 pr-1">
+                        {tag}
+                        <button type="button" onClick={() => removeTag(tag)} className="hover:bg-muted rounded-sm p-0.5">
+                          <X className="size-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Tag personnalise..."
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagInputKeyDown}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addTag(tagInput)}
+                    disabled={!tagInput.trim()}
+                  >
+                    +
+                  </Button>
+                </div>
+              </div>
+
+              {/* Items Section */}
+              <Collapsible open={isItemsOpen} onOpenChange={setIsItemsOpen}>
+                <div className="border rounded-lg">
+                  <CollapsibleTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex items-center justify-between w-full p-3 text-left hover:bg-muted/50 transition-colors"
+                    >
+                      <span className="text-sm font-medium">
+                        Details ({items.length} item{items.length !== 1 ? 's' : ''})
+                      </span>
+                      {isItemsOpen ? (
+                        <ChevronUp className="size-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="size-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-3 pt-0 flex flex-col gap-3">
+                      {items.map((item, index) => (
+                        <div
+                          key={item.id}
+                          className="flex flex-col gap-2 p-3 bg-muted/30 rounded-lg"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <Input
+                              placeholder="Nom de l'item"
+                              value={item.name}
+                              onChange={(e) => updateItem(index, 'name', e.target.value)}
+                              className="flex-1"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => removeItem(index)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                          <div className="grid grid-cols-4 gap-2">
+                            <Input
+                              type="number"
+                              placeholder="Qte"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, 'quantity', e.target.value)}
+                            />
+                            <Input
+                              placeholder="Unite"
+                              value={item.unit}
+                              onChange={(e) => updateItem(index, 'unit', e.target.value)}
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Prix unit."
+                              value={item.unitPrice}
+                              onChange={(e) => updateItem(index, 'unitPrice', e.target.value)}
+                            />
+                            <Input
+                              type="number"
+                              placeholder="Total"
+                              value={item.total}
+                              onChange={(e) => updateItem(index, 'total', e.target.value)}
+                            />
+                          </div>
+                          <Select
+                            value={item.itemCategory}
+                            onValueChange={(v) => updateItem(index, 'itemCategory', v)}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Type d'item (optionnel)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {ITEM_CATEGORIES.map((cat) => (
+                                <SelectItem key={cat} value={cat}>
+                                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-full bg-transparent"
+                        onClick={addItem}
+                      >
+                        <Plus className="size-4 mr-2" />
+                        Ajouter un item
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </div>
+              </Collapsible>
+            </CollapsibleContent>
+          </Collapsible>
         </form>
       </DialogContent>
     </Dialog>

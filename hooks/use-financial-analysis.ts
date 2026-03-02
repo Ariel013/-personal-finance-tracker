@@ -55,8 +55,8 @@ export function useFinancialAnalysis({
     return subscriptions
       .filter((s) => {
         if (!s.isActive || !s.isFixed) return false
+        if (s.startMonth && selectedMonth < s.startMonth) return false
         if (s.isSuspended && s.suspendedUntil) {
-          // Vérifier si la suspension est active pour ce mois
           return selectedMonth > s.suspendedUntil
         }
         return true
@@ -80,15 +80,19 @@ export function useFinancialAnalysis({
 
   // Argent réellement disponible
   const reallyAvailable = useMemo(() => {
-    // Calculer les charges fixes restantes du mois
     const today = new Date()
-    const currentDay = today.getDate()
-    
+    const [selYear, selMonth] = selectedMonth.split('-').map(Number)
+    const isCurrentMonth =
+      today.getFullYear() === selYear && today.getMonth() + 1 === selMonth
+    const currentDay = isCurrentMonth ? today.getDate() : 0
+
     const remainingFixedCharges = subscriptions
       .filter((s) => {
         if (!s.isActive || !s.isFixed) return false
         if (s.isSuspended && s.suspendedUntil && selectedMonth <= s.suspendedUntil) return false
-        // Si la date de facturation n'est pas encore passée ce mois
+        if (s.startMonth && selectedMonth < s.startMonth) return false
+        // For current month: only charges not yet billed
+        // For future months: all charges count
         return s.billingDate > currentDay
       })
       .reduce((sum, s) => sum + s.amount, 0)

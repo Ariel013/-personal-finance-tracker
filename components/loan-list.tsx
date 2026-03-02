@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
   AlertDialog,
@@ -62,6 +63,7 @@ export function LoanList({
   const [repaymentAmount, setRepaymentAmount] = useState('')
   const [repaymentDate, setRepaymentDate] = useState(new Date().toISOString().split('T')[0])
   const [repaymentNote, setRepaymentNote] = useState('')
+  const [repaymentFromSalary, setRepaymentFromSalary] = useState(false)
   const [expandedLoans, setExpandedLoans] = useState<Set<string>>(new Set())
 
   const formatAmount = (amount: number) => {
@@ -112,12 +114,14 @@ export function LoanList({
       date: repaymentDate,
       amount: parseFloat(repaymentAmount),
       note: repaymentNote || undefined,
+      fromSalary: repaymentFromSalary || undefined,
     })
 
     setRepaymentLoan(null)
     setRepaymentAmount('')
     setRepaymentDate(new Date().toISOString().split('T')[0])
     setRepaymentNote('')
+    setRepaymentFromSalary(false)
   }
 
   const toggleExpanded = (loanId: string) => {
@@ -308,8 +312,15 @@ export function LoanList({
                                   className="flex items-center justify-between text-sm py-2 px-3 rounded bg-muted/30"
                                 >
                                   <div className="flex-1">
-                                    <div className="font-medium">
-                                      {formatAmount(repayment.amount)}
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">
+                                        {formatAmount(repayment.amount)}
+                                      </span>
+                                      {repayment.fromSalary && (
+                                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-amber-500 text-amber-600">
+                                          Salaire
+                                        </Badge>
+                                      )}
                                     </div>
                                     <div className="text-xs text-muted-foreground">
                                       {formatDate(repayment.date)}
@@ -388,6 +399,17 @@ export function LoanList({
                   rows={2}
                   className="resize-none"
                 />
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="repay-from-salary"
+                  checked={repaymentFromSalary}
+                  onCheckedChange={(checked) => setRepaymentFromSalary(checked === true)}
+                />
+                <Label htmlFor="repay-from-salary" className="text-sm font-normal cursor-pointer">
+                  Prélevé sur le salaire
+                </Label>
               </div>
 
               <div className="flex gap-2">

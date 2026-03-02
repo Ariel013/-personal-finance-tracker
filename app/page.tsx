@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   LayoutDashboard,
   Receipt,
@@ -15,6 +15,8 @@ import {
   Calculator,
   HandCoins,
   Wallet,
+  FileBarChart,
+  ListChecks,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -48,11 +50,14 @@ import { BudgetManager } from '@/components/budget-manager'
 import { AvailableFunds } from '@/components/available-funds'
 import { TemporalAnalysis } from '@/components/temporal-analysis'
 import { SimulationMode } from '@/components/simulation-mode'
+import { MonthlyReport } from '@/components/monthly-report'
+import { FinancialActions } from '@/components/financial-actions'
 import { LoanForm } from '@/components/loan-form'
 import { LoanList } from '@/components/loan-list'
 import { LoansSummary } from '@/components/loans-summary'
 import { FutureCharges } from '@/components/future-charges'
 import { TransitionMonthIndicator } from '@/components/transition-month-indicator'
+import { useSupabaseSync } from '@/hooks/use-supabase-sync'
 
 export default function ExpenseTracker() {
   const {
@@ -74,6 +79,10 @@ export default function ExpenseTracker() {
     deleteBudget,
     createSnapshot,
     deleteSnapshot,
+    updateSnapshot,
+    addAction,
+    updateAction,
+    deleteAction,
     addLoan,
     updateLoan,
     deleteLoan,
@@ -88,6 +97,9 @@ export default function ExpenseTracker() {
     exportRepaymentsToCSV,
     exportToJSON,
     importFromJSON,
+    getRawData,
+    setRawData,
+    setOnDataChange,
   } = useExpenseData()
 
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -116,6 +128,41 @@ export default function ExpenseTracker() {
     expenses: data.expenses,
     addExpense,
   })
+
+  // Cloud sync
+  const sync = useSupabaseSync()
+
+  // Wire debounced cloud push on every local data change
+  useEffect(() => {
+    if (sync.isConnected) {
+      setOnDataChange((newData) => sync.debouncedPush(newData))
+    } else {
+      setOnDataChange(null)
+    }
+  }, [sync.isConnected, sync.debouncedPush, setOnDataChange])
+
+  const handleCloudConnect = useCallback(async (url: string, anonKey: string) => {
+    const result = await sync.connect(url, anonKey)
+    if (result.success) {
+      // Push current local data to cloud on first connect
+      await sync.pushToCloud(getRawData())
+    }
+    return result
+  }, [sync, getRawData])
+
+  const handlePullFromCloud = useCallback(async () => {
+    const result = await sync.pullFromCloud(getRawData())
+    if (result.cloudData) {
+      setRawData(result.cloudData)
+    }
+  }, [sync, getRawData, setRawData])
+
+  const handleRestoreBackup = useCallback(() => {
+    const backup = sync.restoreBackup()
+    if (backup) {
+      setRawData(backup)
+    }
+  }, [sync, setRawData])
 
   // Filter expenses for selected month
   const monthlyExpenses = useMemo(
@@ -165,6 +212,8 @@ export default function ExpenseTracker() {
     { id: 'incomes', label: 'Revenus', icon: TrendingUp },
     { id: 'budgets', label: 'Budgets', icon: Target },
     { id: 'analysis', label: 'Analyse', icon: BarChart3 },
+    { id: 'report', label: 'Rapport', icon: FileBarChart },
+    { id: 'actions', label: 'Actions', icon: ListChecks },
     { id: 'simulation', label: 'Simulation', icon: Calculator },
     { id: 'loans', label: 'Prêts & Dettes', icon: HandCoins },
     { id: 'subscriptions', label: 'Récurrences', icon: RefreshCw },
@@ -213,7 +262,7 @@ export default function ExpenseTracker() {
 
           <SidebarFooter className="border-t p-4">
             <div className="text-xs text-muted-foreground text-center">
-              v2.1.0
+              v2.3.0
             </div>
           </SidebarFooter>
         </Sidebar>
@@ -327,6 +376,30 @@ export default function ExpenseTracker() {
             />
             )}
 
+            {activeTab === 'report' && (
+            <MonthlyReport
+              expenses={data.expenses}
+              incomes={data.incomes}
+              categories={data.categories}
+              loans={data.loans}
+              snapshots={data.snapshots}
+              selectedMonth={selectedMonth}
+              analysis={analysis}
+              onCreateSnapshot={createSnapshot}
+              onUpdateSnapshot={updateSnapshot}
+            />
+            )}
+
+            {activeTab === 'actions' && (
+            <FinancialActions
+              actions={data.actions}
+              loans={data.loans}
+              onAdd={addAction}
+              onUpdate={updateAction}
+              onDelete={deleteAction}
+            />
+            )}
+
             {activeTab === 'simulation' && (
             <SimulationMode
               categories={data.categories}
@@ -403,6 +476,17 @@ export default function ExpenseTracker() {
               onImportJSON={importFromJSON}
               onResetData={resetData}
               availableMonths={availableMonths}
+              cloudSync={{
+                isConnected: sync.isConnected,
+                isSyncing: sync.isSyncing,
+                lastSyncAt: sync.lastSyncAt,
+                error: sync.error,
+                onConnect: handleCloudConnect,
+                onDisconnect: sync.disconnect,
+                onSyncNow: () => sync.syncNow(getRawData()),
+                onPullFromCloud: handlePullFromCloud,
+                onRestoreBackup: handleRestoreBackup,
+              }}
             />
             )}
           </div>

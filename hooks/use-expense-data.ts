@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   type AppData,
   type Expense,
@@ -12,6 +12,7 @@ import {
   type MonthlySnapshot,
   type Loan,
   type LoanRepayment,
+  type FinancialAction,
   type ExportData,
   type ImportResult,
   DEFAULT_CATEGORIES,
@@ -29,6 +30,7 @@ const getInitialData = (): AppData => ({
   budgets: [],
   snapshots: [],
   loans: [],
+  actions: [],
   categoryThresholds: {},
   settings: DEFAULT_SETTINGS,
   version: DATA_VERSION,
@@ -46,6 +48,8 @@ const getDeviceInfo = (): string => {
 export function useExpenseData() {
   const [data, setData] = useState<AppData>(getInitialData)
   const [isLoaded, setIsLoaded] = useState(false)
+  // Cloud sync callback — set by page.tsx when Supabase is connected
+  const onDataChangeRef = useRef<((data: AppData) => void) | null>(null)
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -54,7 +58,7 @@ export function useExpenseData() {
       try {
         const parsed = JSON.parse(stored) as AppData
         
-        // Migration de v1.x vers v2.2.0
+        // Migration de v1.x vers v2.3.0
         const migratedData: AppData = {
           ...getInitialData(),
           ...parsed,
@@ -63,6 +67,7 @@ export function useExpenseData() {
           budgets: parsed.budgets || [],
           snapshots: parsed.snapshots || [],
           loans: parsed.loans || [],
+          actions: parsed.actions || [],
           subscriptions: (parsed.subscriptions || []).map((s: any) => ({
             ...s,
             status: s.status || (s.isActive ? 'ACTIF' : 'SUSPENDU'),
@@ -93,10 +98,12 @@ export function useExpenseData() {
     setIsLoaded(true)
   }, [])
 
-  // Save data to localStorage whenever it changes
+  // Save data to localStorage whenever it changes, then notify cloud
   useEffect(() => {
     if (isLoaded) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      // Notify cloud sync in background (local is already saved)
+      onDataChangeRef.current?.(data)
     }
   }, [data, isLoaded])
 
@@ -328,7 +335,11 @@ export function useExpenseData() {
         createdAt: new Date().toISOString(),
       }
 
-      // Remove existing snapshot for the same month
+      // Preserve reportNote/attachmentPath from existing snapshot
+      const existingSnapshot = prev.snapshots.find((s) => s.month === month)
+      if (existingSnapshot?.reportNote) snapshot.reportNote = existingSnapshot.reportNote
+      if (existingSnapshot?.attachmentPath) snapshot.attachmentPath = existingSnapshot.attachmentPath
+
       const filteredSnapshots = prev.snapshots.filter((s) => s.month !== month)
 
       return {
@@ -342,6 +353,55 @@ export function useExpenseData() {
     setData((prev) => ({
       ...prev,
       snapshots: prev.snapshots.filter((s) => s.id !== id),
+    }))
+  }, [])
+
+  const updateSnapshot = useCallback((month: string, updates: Partial<MonthlySnapshot>) => {
+    setData((prev) => ({
+      ...prev,
+      snapshots: prev.snapshots.map((s) =>
+        s.month === month ? { ...s, ...updates } : s
+      ),
+    }))
+  }, [])
+
+  // Financial action operations
+  const addAction = useCallback((action: Omit<FinancialAction, 'id' | 'createdAt'>) => {
+    const newAction: FinancialAction = {
+      ...action,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    }
+    setData((prev) => ({
+      ...prev,
+      actions: [newAction, ...prev.actions],
+    }))
+    return newAction
+  }, [])
+
+  const updateAction = useCallback((id: string, updates: Partial<FinancialAction>) => {
+    setData((prev) => ({
+      ...prev,
+      actions: prev.actions.map((a) => {
+        if (a.id !== id) return a
+        const updated = { ...a, ...updates }
+        // Auto-set completedDate when marking as done
+        if (updates.status === 'FAIT' && !a.completedDate) {
+          updated.completedDate = new Date().toISOString()
+        }
+        // Clear completedDate if reverting from FAIT
+        if (updates.status && updates.status !== 'FAIT') {
+          updated.completedDate = undefined
+        }
+        return updated
+      }),
+    }))
+  }, [])
+
+  const deleteAction = useCallback((id: string) => {
+    setData((prev) => ({
+      ...prev,
+      actions: prev.actions.filter((a) => a.id !== id),
     }))
   }, [])
 
@@ -576,6 +636,11 @@ export function useExpenseData() {
             loans: Array.isArray(importedData.loans)
               ? importedData.loans.filter((l): l is Loan =>
                   l && typeof l.id === 'string' && typeof l.totalAmount === 'number'
+                )
+              : [],
+            actions: Array.isArray(importedData.actions)
+              ? importedData.actions.filter((a): a is FinancialAction =>
+                  a && typeof a.id === 'string' && typeof a.title === 'string'
                 )
               : [],
             categoryThresholds: typeof importedData.categoryThresholds === 'object'
@@ -878,6 +943,11 @@ export function useExpenseData() {
     // Snapshots
     createSnapshot,
     deleteSnapshot,
+    updateSnapshot,
+    // Actions
+    addAction,
+    updateAction,
+    deleteAction,
     // Loans
     addLoan,
     updateLoan,
@@ -896,8 +966,9 @@ export function useExpenseData() {
     exportRepaymentsToCSV,
     exportToJSON,
     importFromJSON,
-    // For future backend integration
+    // Backend sync integration
     getRawData,
     setRawData,
+    setOnDataChange: (cb: ((data: AppData) => void) | null) => { onDataChangeRef.current = cb },
   }
 }
