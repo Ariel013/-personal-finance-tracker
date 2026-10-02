@@ -28,3 +28,7 @@ next-env.d.ts
 
 # personal financial documents
 /documents/
+# données réelles : jamais dans le dépôt (ADR 0002)
+exports/
+*-export*.json
+*.export.json

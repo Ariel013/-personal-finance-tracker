@@ -1,66 +1,96 @@
-# CLAUDE.md
+# Pilotage financier personnel — contexte projet pour Claude Code
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Lis ce fichier en entier avant toute tâche. Il pointe vers les docs de
+référence — lis aussi celles qui concernent ta tâche avant de coder.
 
-## Build & Development Commands
+> **⚡ EN TOUT PREMIER, à chaque nouvelle session : lis `JOURNAL.md`.**
+> C'est le fil de continuité (où on en est, la prochaine action, les leçons
+> apprises). Tu le **mets à jour en fin de session**.
 
-```bash
-pnpm install          # Install dependencies
-pnpm run dev          # Start dev server (Next.js)
-pnpm run build        # Production build
-pnpm start            # Start production server
-pnpm lint             # Run ESLint
+## Le projet en une phrase
+
+Outil **personnel** de pilotage financier de Kevin : dépenses, revenus,
+budgets, abonnements, prêts et dettes, rapport mensuel. Un seul utilisateur,
+jamais plusieurs. Repris le 2026-10-02 depuis le projet de Yemalin Agbangla
+(deux commits, avec son accord) pour l'adapter à sa vie en France.
+
+## Où en est le projet — LIS CECI AVANT TOUTE CHOSE
+
+- **Phase actuelle : reprise.** Le code hérité fonctionne (v2.3.0) mais n'a
+  **aucun test** et n'a pas encore été relu par nous. Ne pas supposer qu'une
+  fonctionnalité décrite dans `README.md` est vérifiée.
+- Les données vivent dans `localStorage` ; la synchronisation Supabase est
+  **optionnelle**, l'utilisateur colle sa propre URL et sa clé anonyme dans
+  les paramètres. Pas d'authentification, pas de cloisonnement : décidé en
+  [ADR 0001](docs/decisions/0001-un-seul-utilisateur-donnees-locales-supabase-personnel-en-option.md).
+- Pas de déploiement vérifié à ce jour (voir `JOURNAL.md`).
+
+## Stack technique
+
+- **Frontend** : Next.js 16 (App Router, une seule page à onglets), React 19,
+  TypeScript, Tailwind CSS 4, shadcn/ui (Radix), Recharts, react-hook-form + Zod.
+- **État** : le hook `hooks/use-expense-data.ts` tient tout l'état et
+  l'écrit dans `localStorage` (modèle versionné, migrations à la lecture).
+- **Persistance distante (option)** : Supabase, table `app_data`, via
+  `lib/supabase.ts` et `hooks/use-supabase-sync.ts`.
+- **Hébergement** : Vercel (`vercel.json`, région `cdg1`). Pas de variable
+  d'environnement nécessaire.
+- **Gestionnaire de paquets** : pnpm, jamais npm ni yarn.
+
+## Documents de référence — à consulter selon la tâche
+
+| Doc | Quand le lire |
+|---|---|
+| `JOURNAL.md` | **En tout premier, à chaque session.** |
+| `A-FAIRE.md` | Pour les actions manuelles/externes en attente |
+| `docs/architecture.md` | Avant toute décision structurante |
+| `docs/workflow-git.md` | Avant tout commit |
+| `docs/commandes.md` | Aide-mémoire des commandes — et de celles à ne jamais lancer |
+| `docs/decisions/` | Avant de remettre en cause un choix déjà fait |
+| `README.md` | Ce que l'outil fait, pour un humain qui arrive |
+| `DEPLOY.md` | Déploiement Vercel, hérité du projet d'origine |
+
+## Règles d'or, non négociables
+
+1. **Ne jamais faire `git push` sans confirmation explicite, à chaque fois.**
+2. **Aucune donnée financière réelle dans le dépôt, les tests, les captures
+   d'écran ou le journal.** Le développement se fait sur un jeu de données
+   fictif ; les exports JSON et `.env*` restent hors git
+   ([ADR 0002](docs/decisions/0002-aucune-donnee-financiere-reelle-dans-le-depot.md)).
+3. **Sur une décision d'architecture ambiguë, s'arrêter et demander** plutôt
+   que d'improviser silencieusement.
+4. **Un calcul financier ne change pas sans test.** Toute modification de
+   `use-financial-analysis.ts`, des migrations de données ou des totaux
+   s'accompagne d'un test qui l'exerce : le code hérité n'en a aucun, on ne
+   l'aggrave pas.
+5. **Le modèle de données est versionné** (`lib/types.ts`, champ `version`) :
+   tout changement de schéma s'accompagne d'une migration à la lecture,
+   compatible avec les exports JSON existants.
+6. **Interface en français**, sobre, sans emoji ; devise et locale sont des
+   réglages, pas des constantes.
+7. **Hors périmètre** : aucune IA ni conseil automatique. L'outil mesure et
+   présente, il ne recommande pas.
+
+## Après chaque tâche — format de rapport attendu
+
+```
+## Tâche : <résumé en une ligne>
+### Nature : feature | fix | refactor | doc | chore
+### Fichiers modifiés : <liste>
+### Ce qui a changé et pourquoi : <2-4 lignes>
+### Décision(s) prise(s) qui mériterait(nt) un ADR : <oui/non, laquelle>
+### Commit proposé : <message exact, non encore exécuté>
 ```
 
-No test framework is configured. Package manager is **pnpm** (not npm/yarn).
+Kevin valide le commit avant qu'il ne soit fait. Pas de trailer de co-auteur
+dans les messages de commit.
 
-## Architecture Overview
+## Continuité entre sessions
 
-**Personal Finance Tracker** — a 100% client-side Next.js 16 app (React 19, TypeScript) with all data stored in browser localStorage. No backend, no API calls, fully offline.
+1. **Reprise sans relecture du code** : `JOURNAL.md` + ce fichier suffisent.
+2. **Apprendre des erreurs** : toute erreur corrigée est consignée dans
+   « Leçons apprises » de `JOURNAL.md`.
+3. **Être force de proposition** : après avoir pris l'état, recommander la
+   suite — ne pas lister des options.
 
-### Key Directories
-
-- `app/` — Next.js App Router. `page.tsx` is the single-page entry point with tab-based navigation (9 tabs: dashboard, expenses, incomes, budgets, analysis, simulation, loans, subscriptions, settings).
-- `components/` — Feature components (dashboard, forms, lists, analysis views). Each major feature is one file (~5-30KB each).
-- `components/ui/` — 59 shadcn/ui primitives (Radix UI-based). Do not edit manually; managed via shadcn CLI.
-- `hooks/` — Business logic hooks. `use-expense-data.ts` (903 lines) is the **central state management hook** — all data CRUD flows through it.
-- `lib/types.ts` — All TypeScript type definitions (301 lines). Single source of truth for data models.
-- `lib/utils.ts` — Utility functions (cn helper for class merging).
-
-### Data Flow Pattern
-
-All state lives in `useExpenseData()` hook → reads/writes to localStorage. Components call hook methods (`addExpense`, `updateExpense`, etc.) which update state and persist to localStorage. No external state management library.
-
-Data model is versioned (currently v2.2.0) with backward-compatible migrations on load (v1 → v2.0 → v2.2).
-
-### Core Data Model (AppData)
-
-- **Expenses** — transactions with optional line items, tags, decision notes, accounting month
-- **Subscriptions** — recurring charges with statuses: A_VENIR (pending) | ACTIF | SUSPENDU; frequency: monthly/quarterly/yearly; budgetary activation dates separate from creation dates
-- **Loans** — type PRETE (lent) | EMPRUNTE (borrowed); partial repayment tracking with history
-- **Incomes**, **Budgets**, **Categories**, **MonthlySnapshots**
-- **Settings** — currency (default XOF), locale (default fr-FR), minimal budget, transition months
-
-### Auto-Recurrences
-
-`useAutoRecurrences` hook auto-generates expense entries from active subscriptions at month start, checking daily via localStorage timestamp.
-
-### Financial Calculations
-
-`useFinancialAnalysis` hook computes: available funds = income - expenses - fixed charges - minimal budget, month comparisons, 3-month rolling averages, budget status per category.
-
-## Tech Stack
-
-- **UI**: Radix UI + shadcn/ui + Tailwind CSS 4 (OKLch colors) + Lucide icons
-- **Forms**: react-hook-form + Zod validation
-- **Charts**: Recharts
-- **Dates**: date-fns
-- **Deployment**: Vercel (CDG1/Paris region), config in `vercel.json`
-
-## Design Principles
-
-- French-language UI throughout (labels, categories, messages)
-- Sober, professional design — no flashy gradients, no emojis in UI
-- Decision-oriented: every view helps the user make financial decisions
-- Payment methods include regional options: wave, djamo, mobile_money
-- Transition months concept: non-representative months (country change, job change) are flagged to avoid misleading analytics
+En fin de session, mettre à jour `JOURNAL.md`. C'est la condition de la reprise.
