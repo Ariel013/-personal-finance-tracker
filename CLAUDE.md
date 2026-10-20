@@ -73,14 +73,23 @@ jamais plusieurs. Repris le 2026-10-02 depuis le projet de Yemalin Agbangla
 
 ## Après chaque tâche — format de rapport attendu
 
+Tout retour de l'agent — rapport de fin de tâche ou réponse en cours de
+session — donne **l'utile seulement** (format du coffre,
+`brain/00-methode/rapport-de-tache.md`, revu le 2026-10-20) :
+
 ```
-## Tâche : <résumé en une ligne>
-### Nature : feature | fix | refactor | doc | chore
-### Fichiers modifiés : <liste>
-### Ce qui a changé et pourquoi : <2-4 lignes>
-### Décision(s) prise(s) qui mériterait(nt) un ADR : <oui/non, laquelle>
-### Commit proposé : <message exact, non encore exécuté>
+## <la tâche en une ligne>
+**Fait** : actions effectuées et résultat mesuré ; ce qui reste non vérifié
+**Sécurité** : revue du diff faite → constats ; ou non faite → pourquoi
+**Challenge** : ce que je remets en cause dans ce qui est proposé ou à faire, et ma recommandation
+**À toi** : décisions à prendre, actions manuelles, dans l'ordre
+**Commit proposé** : <message exact, non encore exécuté>
 ```
+
+Pas de liste de fichiers, pas de code, pas de commandes, pas de compte rendu
+brut de sous-agent : l'agent les vérifie et ne les remonte que s'ils changent
+une décision. Un changement de schéma, d'auth, de données sensibles ou une
+décision qui mériterait un ADR se signale toujours, en une ligne.
 
 Kevin valide le commit avant qu'il ne soit fait. Pas de trailer de co-auteur
 dans les messages de commit.
